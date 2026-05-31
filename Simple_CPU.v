@@ -61,14 +61,22 @@ reg [4:0]  mem_wb_rd;
 reg [31:0] mem_wb_alu_result;
 reg [31:0] mem_wb_load_data;
 
-reg [31:0] rf_x1,  rf_x2,  rf_x3,  rf_x4;
+/*reg [31:0] rf_x1,  rf_x2,  rf_x3,  rf_x4;
 reg [31:0] rf_x5,  rf_x6,  rf_x7,  rf_x8;
 reg [31:0] rf_x9,  rf_x10, rf_x11, rf_x12;
 reg [31:0] rf_x13, rf_x14, rf_x15, rf_x16;
 reg [31:0] rf_x17, rf_x18, rf_x19, rf_x20;
 reg [31:0] rf_x21, rf_x22, rf_x23, rf_x24;
 reg [31:0] rf_x25, rf_x26, rf_x27, rf_x28;
-reg [31:0] rf_x29, rf_x30, rf_x31;
+reg [31:0] rf_x29, rf_x30, rf_x31;*/
+
+/*(* ram_style = "distributed" *) reg [31:0] regs [0:31];
+integer rf_i;*/
+reg [31:0] rf_a [0:31];
+reg [31:0] rf_b [0:31];
+
+reg        rf_clear_active;
+reg [5:0]  rf_clear_idx;
 
 wire [6:0] id_opcode = if_id_instr[6:0];
 wire [4:0] id_rd     = if_id_instr[11:7];
@@ -159,7 +167,30 @@ wire [31:0] mem_rs2_fwd = (mem_wb_valid && mem_wb_reg_write &&
                           wb_wdata : id_ex_rs2_val;
 wire [31:0] mem_addr_result = mem_rs1_fwd + id_ex_imm;
 
-initial begin
+always @(posedge CLK or negedge RSTN) begin
+    if (!RSTN) begin
+        rf_clear_active <= 1'b1;
+        rf_clear_idx    <= 6'd0;
+    end
+    else begin
+        if (rf_clear_active) begin
+            if (rf_clear_idx == 6'd31) begin
+                rf_clear_active <= 1'b0;
+            end
+            else begin
+                rf_clear_idx <= rf_clear_idx + 6'd1;
+            end
+        end
+    end
+end
+
+wire [31:0] id_rs1_raw =
+    (id_rs1 == 5'd0) ? 32'd0 : rf_a[id_rs1];
+
+wire [31:0] id_rs2_raw =
+    (id_rs2 == 5'd0) ? 32'd0 : rf_b[id_rs2];
+
+/*initial begin
     rf_x1  = 32'd0; rf_x2  = 32'd0; rf_x3  = 32'd0; rf_x4  = 32'd0;
     rf_x5  = 32'd0; rf_x6  = 32'd0; rf_x7  = 32'd0; rf_x8  = 32'd0;
     rf_x9  = 32'd0; rf_x10 = 32'd0; rf_x11 = 32'd0; rf_x12 = 32'd0;
@@ -168,9 +199,9 @@ initial begin
     rf_x21 = 32'd0; rf_x22 = 32'd0; rf_x23 = 32'd0; rf_x24 = 32'd0;
     rf_x25 = 32'd0; rf_x26 = 32'd0; rf_x27 = 32'd0; rf_x28 = 32'd0;
     rf_x29 = 32'd0; rf_x30 = 32'd0; rf_x31 = 32'd0;
-end
+end*/
 
-always @(*) begin
+/*always @(*) begin
     case (id_rs1)
         5'd1:  id_rs1_raw = rf_x1;
         5'd2:  id_rs1_raw = rf_x2;
@@ -205,9 +236,12 @@ always @(*) begin
         5'd31: id_rs1_raw = rf_x31;
         default: id_rs1_raw = 32'd0;
     endcase
-end
+end*/
+/* @(*) begin
+    id_rs1_raw = (id_rs1 == 5'd0) ? 32'd0 : regs[id_rs1];
+end*/
 
-always @(*) begin
+/*always @(*) begin
     case (id_rs2)
         5'd1:  id_rs2_raw = rf_x1;
         5'd2:  id_rs2_raw = rf_x2;
@@ -242,7 +276,10 @@ always @(*) begin
         5'd31: id_rs2_raw = rf_x31;
         default: id_rs2_raw = 32'd0;
     endcase
-end
+end*/
+/*always @(*) begin
+    id_rs2_raw = (id_rs2 == 5'd0) ? 32'd0 : regs[id_rs2];
+end*/
 
 Instruction_Memory u_instr_mem(
     .clka(CLK),
@@ -266,7 +303,7 @@ always @(*) begin
     end
 end
 
-always @(posedge CLK or negedge RSTN) begin
+/*always @(posedge CLK or negedge RSTN) begin
     if (!RSTN) begin
         rf_x1  <= 32'd0;
         rf_x2  <= 32'd0;
@@ -338,6 +375,33 @@ always @(posedge CLK or negedge RSTN) begin
             endcase
         end
     end
+end*/
+
+/*always @(posedge CLK or negedge RSTN) begin
+    if (!RSTN) begin
+        for (rf_i = 0; rf_i < 32; rf_i = rf_i + 1) begin
+            regs[rf_i] <= 32'd0;
+        end
+    end
+    else begin
+        regs[0] <= 32'd0;
+
+        if (mem_wb_valid && mem_wb_reg_write && (mem_wb_rd != 5'd0)) begin
+            regs[mem_wb_rd] <= wb_wdata;
+        end
+    end
+end*/
+always @(posedge CLK) begin
+    if (rf_clear_active) begin
+        rf_a[rf_clear_idx[4:0]] <= 32'd0;
+        rf_b[rf_clear_idx[4:0]] <= 32'd0;
+    end
+    else begin
+        if (mem_wb_valid && mem_wb_reg_write && (mem_wb_rd != 5'd0)) begin
+            rf_a[mem_wb_rd] <= wb_wdata;
+            rf_b[mem_wb_rd] <= wb_wdata;
+        end
+    end
 end
 
 always @(posedge CLK or negedge RSTN) begin
@@ -383,7 +447,50 @@ always @(posedge CLK or negedge RSTN) begin
         mem_wb_alu_result <= 32'd0;
         mem_wb_load_data <= 32'd0;
 
-    end
+    end 
+    else if (rf_clear_active) begin
+    pc_word         <= 10'd0;
+    fetch_pc_word_q <= 10'd0;
+    imem_valid_q    <= 1'b0;
+    fetch_buf_valid <= 1'b0;
+    fetch_buf_pc_word <= 10'd0;
+    fetch_buf_instr <= 32'd0;
+
+    if_id_valid   <= 1'b0;
+    if_id_pc_word <= 10'd0;
+    if_id_instr   <= 32'd0;
+
+    id_ex_valid      <= 1'b0;
+    id_ex_pc_word    <= 10'd0;
+    id_ex_rs1_val    <= 32'd0;
+    id_ex_rs2_val    <= 32'd0;
+    id_ex_imm        <= 32'd0;
+    id_ex_rs1        <= 5'd0;
+    id_ex_rs2        <= 5'd0;
+    id_ex_rd         <= 5'd0;
+    id_ex_funct3     <= 3'd0;
+    id_ex_funct7     <= 7'd0;
+    id_ex_reg_write  <= 1'b0;
+    id_ex_mem_read   <= 1'b0;
+    id_ex_mem_write  <= 1'b0;
+    id_ex_mem_to_reg <= 1'b0;
+    id_ex_alu_src_imm <= 1'b0;
+    id_ex_branch     <= 1'b0;
+    id_ex_sub        <= 1'b0;
+
+    ex_mem_valid      <= 1'b0;
+    ex_mem_reg_write  <= 1'b0;
+    ex_mem_mem_to_reg <= 1'b0;
+    ex_mem_rd         <= 5'd0;
+    ex_mem_alu_result <= 32'd0;
+
+    mem_wb_valid      <= 1'b0;
+    mem_wb_reg_write  <= 1'b0;
+    mem_wb_mem_to_reg <= 1'b0;
+    mem_wb_rd         <= 5'd0;
+    mem_wb_alu_result <= 32'd0;
+    mem_wb_load_data  <= 32'd0;
+end
     else begin
         mem_wb_valid <= ex_mem_valid;
         mem_wb_reg_write <= ex_mem_reg_write;
