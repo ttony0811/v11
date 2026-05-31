@@ -74,11 +74,9 @@ module RISCV_CNN_tb;
             $display("TB_AUTO_FINISH: all_done rose at %0t ps", $time);
             repeat (POST_DONE_CYCLES) @(posedge FPGA_clk);
             $display("TB_AUTO_FINISH: kept waveform for %0d cycles after all_done", POST_DONE_CYCLES);
-            $finish;
         end
         else begin
             $display("TB_AUTO_FINISH: TIMEOUT at %0t ps, all_done did not rise", $time);
-            $finish;
         end
     end
 
