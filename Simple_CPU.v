@@ -102,15 +102,20 @@ wire id_uses_rs1 = id_is_load || id_is_store || id_is_addi || id_is_addsub || id
 wire id_uses_rs2 = id_is_store || id_is_addsub || id_is_branch;
 
 wire [31:0] wb_wdata = mem_wb_mem_to_reg ? mem_wb_load_data : mem_wb_alu_result;
-reg [31:0] id_rs1_raw;
-reg [31:0] id_rs2_raw;
+
+wire [31:0] id_rs1_raw =
+    (id_rs1 == 5'd0) ? 32'd0 : rf_a[id_rs1];
+
+wire [31:0] id_rs2_raw =
+    (id_rs2 == 5'd0) ? 32'd0 : rf_b[id_rs2];
+
 wire [31:0] id_rs1_value = (mem_wb_valid && mem_wb_reg_write &&
                             (mem_wb_rd != 5'd0) && (mem_wb_rd == id_rs1)) ?
                            wb_wdata : id_rs1_raw;
+
 wire [31:0] id_rs2_value = (mem_wb_valid && mem_wb_reg_write &&
                             (mem_wb_rd != 5'd0) && (mem_wb_rd == id_rs2)) ?
                            wb_wdata : id_rs2_raw;
-
 wire load_use_stall = id_ex_valid && id_ex_mem_read && (id_ex_rd != 5'd0) &&
                       ((id_uses_rs1 && (id_ex_rd == id_rs1)) ||
                        (id_uses_rs2 && (id_ex_rd == id_rs2)));
@@ -184,11 +189,6 @@ always @(posedge CLK or negedge RSTN) begin
     end
 end
 
-wire [31:0] id_rs1_raw =
-    (id_rs1 == 5'd0) ? 32'd0 : rf_a[id_rs1];
-
-wire [31:0] id_rs2_raw =
-    (id_rs2 == 5'd0) ? 32'd0 : rf_b[id_rs2];
 
 /*initial begin
     rf_x1  = 32'd0; rf_x2  = 32'd0; rf_x3  = 32'd0; rf_x4  = 32'd0;
